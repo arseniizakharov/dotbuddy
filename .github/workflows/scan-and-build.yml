@@ -1,0 +1,65 @@
+name: Vuln scan and Build 
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * 0'
+
+# security scanning permissions
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: exclude-dir=vendor -severity high ./...
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+          cache: true
+        
+      - name: Install dependencies
+        run: go mod download
+        
+      - name: Run tests
+        run: go test -v ./...
+        
+      - name: Build binary
+        run: |
+          go build -v -o dotbuddy
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotbuddy
+          path: dotbuddy
+          retention-days: 5
